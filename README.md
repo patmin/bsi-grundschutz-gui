@@ -1,54 +1,51 @@
-﻿## Kompendium-CLI
+﻿## IT-Grundschutz Kompendium Toolset
 
-Dieses kleine Werkzeug erlaubt es, das `XML_Kompendium_2023.xml` direkt zu durchsuchen, jeden einzelnen IT-Grundschutz-Punkt mit einem Umsetzungsstatus zu versehen und sofort umsetzbare Praxis-Ideen abzurufen.
+Dieses Repository enthaelt eine Python-CLI und eine Tkinter-GUI, mit denen du die offiziellen IT-Grundschutz-Anforderungen aus der DocBook/XML-Version des Kompendiums durchsuchen, bewerten und kommentieren kannst. Zu jeder Anforderung kannst du Status und Notiz erfassen; die Anwendung erzeugt zugleich automatisch Praxis-Impulse, die bei der Umsetzung helfen.
 
-### Installation
+> **Wichtig:** Lade die benoetigte XML-Datei selbst herunter (Platzhalter-URL: `https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Grundschutz/IT-GS-Kompendium/XML_Kompendium_2023.xml`) und speichere sie z. B. als `XML_Kompendium_2023.xml` im Projekt. Alternativ kannst du den Pfad ueber `--xml` setzen.
 
-Python 3.10+ genÃ¼gt, es werden keine zusÃ¤tzlichen Pakete benÃ¶tigt.
+### Voraussetzungen und Start
+
+Python 3.10 oder neuer reicht aus, Zusatzpakete sind nicht erforderlich.
 
 ```powershell
 python app.py --help
 ```
 
-### Wichtige Befehle
+### CLI-Befehle
 
-- `python app.py modules` - listet alle Bausteine inkl. Anzahl erledigter Anforderungen.
-- `python app.py requirements APP.1.1` - zeigt die Anforderungen des genannten Bausteins. Optional mit `--status done`.
-- `python app.py show APP.1.1.A3` - Details, Beschreibungstext aus dem XML sowie automatisch generierte Praxis-Impulse.
-- `python app.py set-status APP.1.1.A3 done --note "Technische Umsetzung per GPO"` - setzt Status und Kommentar.
-- `python app.py statuses` - zeigt alle gepflegten Statuswerte (optional mit `--status in_progress`).
+- `python app.py modules` - listet alle Bausteine mit erledigten/offenen Anforderungen.
+- `python app.py requirements APP.1.1` - zeigt Anforderungen eines Bausteins, optional mit `--status done`.
+- `python app.py show APP.1.1.A3` - Detailansicht inklusive Praxis-Impulse.
+- `python app.py set-status APP.1.1.A3 done --note "..."` - Status und Kommentar pflegen.
+- `python app.py statuses` - zeigt alle gepflegten Statuswerte (Filter per `--status` moeglich).
 
-StandardmÃ¤ÃŸig wird `XML_Kompendium_2023.xml` im aktuellen Ordner genutzt und die Datei `status.json` fÃ¼r Fortschrittswerte angelegt. Beide Pfade kÃ¶nnen per `--xml` bzw. `--status-file` Ã¼berschrieben werden.
+Standardmaessig nutzt die CLI `XML_Kompendium_2023.xml` im Projektordner und schreibt Fortschritte in `status.json`. Beide Pfade lassen sich mit `--xml` bzw. `--status-file` anpassen.
 
-### Grafische OberflÃ¤che
-
-FÃ¼r eine komfortable Bearbeitung steht zusÃ¤tzlich eine Tkinter-OberflÃ¤che bereit:
+### Grafische Oberflaeche
 
 ```powershell
 python gui.py
 ```
 
-Die OberflÃ¤che zeigt links alle Bausteine und rechts deren Anforderungen. Beim Anklicken einer Anforderung erscheinen Beschreibung, Praxis-Impulse sowie ein Dropdown zum Setzen des Status (inklusive Kommentar). Alle Ã„nderungen werden sofort im gleichen `status.json` gespeichert und kÃ¶nnen anschlieÃŸend auch Ã¼ber die CLI weiterbearbeitet werden. Mit `--xml` und `--status-file` kÃ¶nnen ebenfalls andere Dateien gesetzt werden.
+Die GUI zeigt links die Bausteine (mit Fortschritt), rechts die Anforderungen. Ein Dropdown erlaubt das Filtern nach Status. Beim Anklicken einer Anforderung siehst du Beschreibung, Praxis-Impulse sowie Felder zum Setzen von Status und Kommentar. Saemtliche Aenderungen landen ebenfalls in `status.json`, sodass CLI und GUI jederzeit denselben Datenstand nutzen.
 
-### Praxis-ErlÃ¤uterungen
+### Praxis-Impulse
 
-FÃ¼r jede Anforderung werden automatisch mehrere Hinweise erzeugt:
+Zu jeder Anforderung erzeugt das Toolset mehrere Hinweise:
 
-1. Einordnung nach Anforderungslevel (Basis, Standard, Hoch) mit konkreter Erwartung an Prozesse/Nachweise.
-2. Einbindung der adressierten Rollen (falls im XML angegeben).
-3. SchlÃ¼sselwort-basierte Tipps (Planung, Konfiguration, Monitoring, Notfall, Dokumentation usw.).
-4. Bis zu zwei SÃ¤tze aus dem Originaltext als direkt umsetzbare Handlungsempfehlung.
+1. Einordnung anhand des Anforderungslevels (Basis, Standard, Hoch) mit erwarteten Massnahmen.
+2. Erinnerung an die beteiligten Rollen laut Kompendium.
+3. Keyword-basierte Tipps (z. B. Planung, Konfiguration, Monitoring, Notfall, Dokumentation).
+4. Bis zu zwei Saetze aus dem Originaltext als direkt umsetzbare Handlungsempfehlung.
 
-Damit erhalten Sie fÃ¼r jeden Punkt sofort VorschlÃ¤ge, wie die Umsetzung in Projekten, Betrieb oder Dokumentation gestaltet werden kann. Eigene Notizen kÃ¶nnen Ã¼ber `set-status` ergÃ¤nzt werden.
+So erhaeltst du sofort Ideen, wie du jeden Punkt organisatorisch, technisch oder dokumentarisch angehen kannst. Eigene Notizen kannst du jederzeit ergaenzen.
 
 ### Statuswerte
 
-Es stehen vier Statuswerte bereit:
-
 - `open` - noch nicht gestartet
-- `in_progress` - Bearbeitung lÃ¤uft
-- `done` - umgesetzt und nachweisbar kontrolliert
-- `not_applicable` - nachvollziehbar nicht anwendbar
+- `in_progress` - in Bearbeitung
+- `done` - umgesetzt und geprueft
+- `not_applicable` - nachvollziehbar nicht relevant
 
-Die Angaben werden im JSON-Format gespeichert und kÃ¶nnen z.â€¯B. fÃ¼r Audits versioniert werden.
-
+Alle Angaben werden in `status.json` gespeichert (JSON-Format) und koennen daher versioniert oder fuer Audits exportiert werden.
