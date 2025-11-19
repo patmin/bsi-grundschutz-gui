@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
+from text_utils import normalize_text
+
 DOCBOOK_NS = {"d": "http://docbook.org/ns/docbook"}
 
 MODULE_RE = re.compile(r"^(?P<prefix>[A-Z]{3,4})\.(?P<body>\d+(?:\.\d+)*)\s+(?P<title>.+)$")
@@ -59,7 +61,8 @@ def load_compendium(xml_path: Path) -> Compendium:
     requirements: Dict[str, Requirement] = {}
 
     for chapter in root.findall("d:chapter", DOCBOOK_NS):
-        chapter_title = _text_or_default(chapter.find("d:title", DOCBOOK_NS), "Unbenanntes Kapitel")
+        chapter_title_raw = _text_or_default(chapter.find("d:title", DOCBOOK_NS), "Unbenanntes Kapitel")
+        chapter_title = normalize_text(chapter_title_raw)
         for section in chapter.findall("d:section", DOCBOOK_NS):
             _walk_section(section, chapter_title, modules, requirements, current_module=None)
 
@@ -77,12 +80,13 @@ def _walk_section(
     requirements: Dict[str, Requirement],
     current_module: Optional[Module],
 ) -> None:
-    title_text = _text_or_default(section.find("d:title", DOCBOOK_NS), "").strip()
-    module_match = MODULE_RE.match(title_text)
+    title_text_raw = _text_or_default(section.find("d:title", DOCBOOK_NS), "").strip()
+    module_match = MODULE_RE.match(title_text_raw)
+    title_text = normalize_text(title_text_raw)
 
     if module_match:
         module_code = f"{module_match.group('prefix')}.{module_match.group('body')}"
-        module_title = module_match.group("title").strip()
+        module_title = normalize_text(module_match.group("title").strip())
         module = modules.get(module_code)
         if module is None:
             module = Module(code=module_code, title=module_title, chapter=chapter_title)
@@ -92,11 +96,11 @@ def _walk_section(
     req_match = REQ_RE.match(title_text)
     if req_match and current_module is not None:
         req_code = req_match.group("code")
-        req_title = req_match.group("title").strip()
+        req_title = normalize_text(req_match.group("title").strip())
         req_level = req_match.group("level")
-        raw_roles = (req_match.group("roles") or "").strip()
+        raw_roles = normalize_text((req_match.group("roles") or "").strip())
         roles = _split_roles(raw_roles)
-        description = _collect_text(section)
+        description = normalize_text(_collect_text(section))
 
         requirement = Requirement(
             code=req_code,
