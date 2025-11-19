@@ -2,7 +2,7 @@
 
 Dieses Repository enthaelt eine Python-CLI und eine Tkinter-GUI, mit denen du das IT-Grundschutz-Kompendium (DocBook/XML) durchsuchen, Anforderungen bewerten und dazu passende KI-Hilfen abrufen kannst. Status- und Notizdaten werden lokal gespeichert.
 
-> **Hinweis:** Lade die XML-Datei selbst von der BSI-Webseite herunter (z. B. `https://www.bsi.bund.de/.../XML_Kompendium_2023.xml?...`) und speichere sie als `XML_Kompendium_2023.xml` im Projekt. Alternativ gibst du den Pfad ueber `--xml` an.
+> **Hinweis:** Lade die XML-Datei selbst von der BSI-Webseite herunter (z. B. `https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Grundschutz/IT-GS-Kompendium/XML_Kompendium_2023.xml`) und speichere sie als `XML_Kompendium_2023.xml` im Projekt. Alternativ gibst du den Pfad ueber `--xml` an.
 
 ### Voraussetzungen
 
