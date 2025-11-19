@@ -1,25 +1,30 @@
 ﻿from __future__ import annotations
 
 import argparse
+import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 from pathlib import Path
 
-from practice_guidance import generate_practical_hints
+from ai_helper import AIHelpStore, ApiKeyStore, fetch_ai_help
 from requirements_parser import Compendium, load_compendium
 from status_store import StatusStore, VALID_STATUSES
 
 
 class CompendiumApp(tk.Tk):
-    def __init__(self, compendium: Compendium, store: StatusStore):
+    def __init__(self, compendium: Compendium, store: StatusStore, api_key_store: ApiKeyStore, ai_help_store: AIHelpStore):
         super().__init__()
-        self.title("IT-Grundschutz Kompendium - StatusÃ¼bersicht")
+        self.title("IT-Grundschutz Kompendium - Statusuebersicht")
         self.geometry("1200x800")
 
         self.compendium = compendium
         self.store = store
+        self.api_key_store = api_key_store
+        self.ai_help_store = ai_help_store
         self.current_module = None
         self.current_requirements = []
+        self.active_requirement = None
+        self._is_fetching_help = False
 
         self._build_widgets()
         self._populate_modules()
@@ -27,6 +32,12 @@ class CompendiumApp(tk.Tk):
     def _build_widgets(self) -> None:
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
+
+        menubar = tk.Menu(self)
+        settings_menu = tk.Menu(menubar, tearoff=0)
+        settings_menu.add_command(label="OpenAI API-Key hinterlegen", command=self._prompt_api_key)
+        menubar.add_cascade(label="Einstellungen", menu=settings_menu)
+        self.config(menu=menubar)
 
         paned_main = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         paned_main.grid(row=0, column=0, sticky="nsew")
@@ -107,15 +118,17 @@ class CompendiumApp(tk.Tk):
 
         hints_frame = ttk.Frame(paned_detail)
         hints_frame.columnconfigure(0, weight=1)
-        ttk.Label(hints_frame, text="Praxis-Impulse").grid(row=0, column=0, sticky="w")
-        self.hints_text = tk.Text(hints_frame, wrap="word", height=8)
-        self.hints_text.grid(row=1, column=0, sticky="nsew")
+        ttk.Label(hints_frame, text="KI Hilfe").grid(row=0, column=0, sticky="w")
+        self.ai_help_text = tk.Text(hints_frame, wrap="word", height=8)
+        self.ai_help_text.grid(row=1, column=0, sticky="nsew")
+        self.ai_button = ttk.Button(hints_frame, text="Hilfe laden", command=self._request_ai_help)
+        self.ai_button.grid(row=2, column=0, sticky="w", pady=(5, 0))
         hints_frame.rowconfigure(1, weight=1)
 
         paned_detail.add(desc_frame, weight=2)
         paned_detail.add(hints_frame, weight=1)
 
-        for widget in [self.description_text, self.hints_text]:
+        for widget in [self.description_text, self.ai_help_text]:
             widget.configure(state="disabled")
 
     def _populate_modules(self) -> None:
@@ -135,10 +148,6 @@ class CompendiumApp(tk.Tk):
         self.current_module = module
         self._populate_requirements(module)
 
-    def _populate_requirements(self, module) -> None:
-        self._refresh_requirements()
-        self._clear_details()
-
     def _refresh_requirements(self) -> None:
         self.requirements_list.delete(0, tk.END)
         if not self.current_module:
@@ -155,7 +164,7 @@ class CompendiumApp(tk.Tk):
             self.requirements_list.insert(tk.END, display)
         self.current_requirements = filtered_requirements
 
-        # wenn Filter greift und nichts Ã¼brig bleibt -> Details zurÃ¼cksetzen
+        # wenn Filter greift und nichts uebrig bleibt -> Details zuruecksetzen
         if not filtered_requirements:
             self._clear_details()
 
@@ -172,6 +181,7 @@ class CompendiumApp(tk.Tk):
         self._display_requirement(req)
 
     def _display_requirement(self, req) -> None:
+        self.active_requirement = req
         self.detail_title.config(text=f"{req.code} - {req.title}")
         status_data = self.store.get(req.code) or {}
         status_val = status_data.get("status", "open")
@@ -182,10 +192,10 @@ class CompendiumApp(tk.Tk):
         self.note_text.insert(tk.END, note_val)
 
         desc = req.description or "Keine Beschreibung gefunden."
-        hints = generate_practical_hints(req)
-
         self._set_text(self.description_text, desc)
-        self._set_text(self.hints_text, "\n".join(f"- {hint}" for hint in hints))
+        help_text = self.ai_help_store.get_help(req.code)
+        self._update_ai_text(help_text)
+        self.ai_button.state(["!disabled"])
 
     def _set_text(self, widget: tk.Text, value: str) -> None:
         widget.configure(state="normal")
@@ -193,10 +203,14 @@ class CompendiumApp(tk.Tk):
         widget.insert(tk.END, value)
         widget.configure(state="disabled")
 
+    def _update_ai_text(self, value: Optional[str]) -> None:
+        content = value if value else "Noch keine KI-Hilfe gespeichert. Nutzen Sie 'Hilfe laden'."
+        self._set_text(self.ai_help_text, content)
+
     def _save_status(self) -> None:
         selection = self.requirements_list.curselection()
         if not selection:
-            messagebox.showinfo("Hinweis", "Bitte wÃ¤hlen Sie eine Anforderung aus.")
+            messagebox.showinfo("Hinweis", "Bitte waehlen Sie eine Anforderung aus.")
             return
         req = self.current_requirements[selection[0]]
         note_value = self.note_text.get("1.0", tk.END).strip()
@@ -208,20 +222,70 @@ class CompendiumApp(tk.Tk):
             self._refresh_requirements()
             if self.requirements_list.size() > 0:
                 self.requirements_list.selection_set(min(selection[0], self.requirements_list.size() - 1))
-        messagebox.showinfo("Gespeichert", f"Status fÃ¼r {req.code} gespeichert.")
+        messagebox.showinfo("Gespeichert", f"Status fuer {req.code} gespeichert.")
+
+    def _prompt_api_key(self) -> None:
+        key = simpledialog.askstring("OpenAI API-Key", "Bitte API-Key eingeben (wird nur lokal gespeichert):", show='*')
+        if key:
+            self.api_key_store.save_key(key.strip())
+            messagebox.showinfo("Gespeichert", "API-Key wurde hinterlegt.")
+
+    def _request_ai_help(self) -> None:
+        if not self.active_requirement:
+            messagebox.showinfo("Hinweis", "Bitte zuerst eine Anforderung auswaehlen.")
+            return
+        api_key = self.api_key_store.load_key()
+        if not api_key:
+            messagebox.showwarning("API-Key fehlt", "Bitte ueber das Menue unter Einstellungen einen OpenAI API-Key speichern.")
+            return
+        if self._is_fetching_help:
+            return
+        self._is_fetching_help = True
+        self.ai_button.state(["disabled"])
+        self._set_text(self.ai_help_text, "KI-Hilfe wird geladen...")
+        threading.Thread(target=self._fetch_ai_help_thread, args=(self.active_requirement, api_key), daemon=True).start()
+
+    def _fetch_ai_help_thread(self, requirement, api_key: str) -> None:
+        try:
+            content = fetch_ai_help(requirement, api_key)
+        except Exception as error:
+            self.after(0, lambda: self._handle_ai_error(str(error)))
+        else:
+            self.ai_help_store.save_help(requirement.code, content)
+            self.after(0, lambda: self._on_ai_help_ready(requirement.code, content))
+        finally:
+            self.after(0, self._reset_ai_fetch_state)
+
+    def _handle_ai_error(self, message: str) -> None:
+        messagebox.showerror("KI Hilfe", message)
+
+    def _on_ai_help_ready(self, req_code: str, content: str) -> None:
+        if self.active_requirement and self.active_requirement.code == req_code:
+            self._update_ai_text(content)
+            messagebox.showinfo("KI Hilfe", "Neue KI-Hilfe gespeichert.")
+
+    def _reset_ai_fetch_state(self) -> None:
+        self._is_fetching_help = False
+        if self.active_requirement:
+            self.ai_button.state(["!disabled"])
+        else:
+            self.ai_button.state(["disabled"])
 
     def _clear_details(self) -> None:
         self.detail_title.config(text="Details")
         self.status_var.set("open")
         self.note_text.delete("1.0", tk.END)
-        for widget in [self.description_text, self.hints_text]:
+        self.active_requirement = None
+        for widget in [self.description_text, self.ai_help_text]:
             self._set_text(widget, "")
-
+        self.ai_button.state(["disabled"])
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="GUI fÃ¼r das IT-Grundschutz-Kompendium.")
+    parser = argparse.ArgumentParser(description="GUI fuer das IT-Grundschutz-Kompendium.")
     parser.add_argument("--xml", default="XML_Kompendium_2023.xml", help="Pfad zur XML-Datei.")
     parser.add_argument("--status-file", default="status.json", help="Pfad zur Status-Datei.")
+    parser.add_argument("--api-key-file", default="openai_key.txt", help="Pfad zur Datei mit OpenAI-API-Key.")
+    parser.add_argument("--ai-help-file", default="ai_help_store.json", help="Pfad zur Datei fuer KI-Hilfen.")
     return parser.parse_args()
 
 
@@ -229,7 +293,9 @@ def main():
     args = parse_args()
     compendium = load_compendium(Path(args.xml))
     store = StatusStore(Path(args.status_file))
-    app = CompendiumApp(compendium, store)
+    api_key_store = ApiKeyStore(Path(args.api_key_file))
+    ai_help_store = AIHelpStore(Path(args.ai_help_file))
+    app = CompendiumApp(compendium, store, api_key_store, ai_help_store)
     app.mainloop()
 
 

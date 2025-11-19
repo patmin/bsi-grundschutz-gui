@@ -1,12 +1,12 @@
 ﻿## IT-Grundschutz Kompendium Toolset
 
-Dieses Repository enthaelt eine Python-CLI und eine Tkinter-GUI, mit denen du die offiziellen IT-Grundschutz-Anforderungen aus der DocBook/XML-Version des Kompendiums durchsuchen, bewerten und kommentieren kannst. Zu jeder Anforderung kannst du Status und Notiz erfassen; die Anwendung erzeugt zugleich automatisch Praxis-Impulse, die bei der Umsetzung helfen.
+Dieses Repository enthaelt eine Python-CLI und eine Tkinter-GUI, mit denen du das IT-Grundschutz-Kompendium (DocBook/XML) durchsuchen, Anforderungen bewerten und dazu passende KI-Hilfen abrufen kannst. Status- und Notizdaten werden lokal gespeichert.
 
-> **Wichtig:** Lade die benoetigte XML-Datei selbst herunter (Platzhalter-URL: `https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Grundschutz/IT-GS-Kompendium/XML_Kompendium_2023.xml`) und speichere sie z. B. als `XML_Kompendium_2023.xml` im Projekt. Alternativ kannst du den Pfad ueber `--xml` setzen.
+> **Hinweis:** Lade die XML-Datei selbst von der BSI-Webseite herunter (z. B. `https://www.bsi.bund.de/.../XML_Kompendium_2023.xml?...`) und speichere sie als `XML_Kompendium_2023.xml` im Projekt. Alternativ gibst du den Pfad ueber `--xml` an.
 
-### Voraussetzungen und Start
+### Voraussetzungen
 
-Python 3.10 oder neuer reicht aus, Zusatzpakete sind nicht erforderlich.
+Python 3.10+ reicht aus, zusaetzliche Pakete sind nicht erforderlich.
 
 ```powershell
 python app.py --help
@@ -14,38 +14,42 @@ python app.py --help
 
 ### CLI-Befehle
 
-- `python app.py modules` - listet alle Bausteine mit erledigten/offenen Anforderungen.
-- `python app.py requirements APP.1.1` - zeigt Anforderungen eines Bausteins, optional mit `--status done`.
-- `python app.py show APP.1.1.A3` - Detailansicht inklusive Praxis-Impulse.
-- `python app.py set-status APP.1.1.A3 done --note "..."` - Status und Kommentar pflegen.
-- `python app.py statuses` - zeigt alle gepflegten Statuswerte (Filter per `--status` moeglich).
+- `python app.py modules` – uebersicht aller Bausteine samt Fortschritt.
+- `python app.py requirements APP.1.1` – Anforderungen eines Bausteins (optional `--status done`).
+- `python app.py set-status APP.1.1.A3 done --note "..."` – Status/Notiz pflegen.
+- `python app.py statuses` – alle gepflegten Statuswerte.
+- `python app.py set-api-key --key sk-...` – OpenAI API-Key lokal speichern (alternativ ohne `--key`, dann wird nachgefragt).
+- `python app.py ai-help APP.1.1.A3` – KI-Hilfe generieren; Ergebnis landet im lokalen Hilfe-Store und wird bei `show` angezeigt.
 
-Standardmaessig nutzt die CLI `XML_Kompendium_2023.xml` im Projektordner und schreibt Fortschritte in `status.json`. Beide Pfade lassen sich mit `--xml` bzw. `--status-file` anpassen.
+Standardpfade: `XML_Kompendium_2023.xml`, `status.json`, `openai_key.txt`, `ai_help_store.json`. Per `--xml`, `--status-file`, `--api-key-file`, `--ai-help-file` kannst du andere Dateien verwenden.
 
-### Grafische Oberflaeche
+### GUI (inkl. KI-Hilfe)
 
 ```powershell
 python gui.py
 ```
 
-Die GUI zeigt links die Bausteine (mit Fortschritt), rechts die Anforderungen. Ein Dropdown erlaubt das Filtern nach Status. Beim Anklicken einer Anforderung siehst du Beschreibung, Praxis-Impulse sowie Felder zum Setzen von Status und Kommentar. Saemtliche Aenderungen landen ebenfalls in `status.json`, sodass CLI und GUI jederzeit denselben Datenstand nutzen.
+Features:
+- Linke Liste: Bausteine mit Zahl erledigter Anforderungen.
+- Rechte obere Liste: Anforderungen, filterbar nach Status.
+- Detailansicht: Beschreibung, Statuspflege, KI-Hilfe-Bereich.
+- Menue `Einstellungen > OpenAI API-Key hinterlegen` zum sicheren Speichern des API-Keys (nur lokal).
+- Schaltflaeche „Hilfe laden“: ruft via OpenAI (Modell `gpt-4o-mini`) einen Umsetzungsvorschlag fuer die ausgewaehlte Anforderung ab und speichert ihn fuer spaetere Nutzung.
 
-### Praxis-Impulse
+### KI-Hilfe & Speicherung
 
-Zu jeder Anforderung erzeugt das Toolset mehrere Hinweise:
-
-1. Einordnung anhand des Anforderungslevels (Basis, Standard, Hoch) mit erwarteten Massnahmen.
-2. Erinnerung an die beteiligten Rollen laut Kompendium.
-3. Keyword-basierte Tipps (z. B. Planung, Konfiguration, Monitoring, Notfall, Dokumentation).
-4. Bis zu zwei Saetze aus dem Originaltext als direkt umsetzbare Handlungsempfehlung.
-
-So erhaeltst du sofort Ideen, wie du jeden Punkt organisatorisch, technisch oder dokumentarisch angehen kannst. Eigene Notizen kannst du jederzeit ergaenzen.
+- API-Key liegt unverschluesselt in `openai_key.txt` (nicht einchecken!).
+- Generierte Hilfen landen in `ai_help_store.json`, getrennt je Anforderungscode.
+- In der CLI (`show ...`) sowie der GUI wird immer der zuletzt gespeicherte Text angezeigt; per Button/Command kannst du neue Antworten anfordern.
 
 ### Statuswerte
 
-- `open` - noch nicht gestartet
-- `in_progress` - in Bearbeitung
-- `done` - umgesetzt und geprueft
-- `not_applicable` - nachvollziehbar nicht relevant
+- `open` – noch nicht gestartet
+- `in_progress` – in Bearbeitung
+- `done` – umgesetzt und geprueft
+- `not_applicable` – begruendet nicht relevant
 
-Alle Angaben werden in `status.json` gespeichert (JSON-Format) und koennen daher versioniert oder fuer Audits exportiert werden.
+Alle Angaben werden lokal als JSON gespeichert und koennen versioniert oder fuer Audits exportiert werden.
+
+
+
